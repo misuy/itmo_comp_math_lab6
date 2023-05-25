@@ -1,10 +1,10 @@
 plugins {
-    kotlin("jvm") version "1.8.21"
+    kotlin("jvm") version "1.8.0"
     application
 }
 
-group = "org.example"
-version = "1.0-SNAPSHOT"
+group = "misuy"
+version = "1.0"
 
 repositories {
     mavenCentral()
@@ -19,9 +19,17 @@ tasks.test {
 }
 
 kotlin {
-    jvmToolchain(11)
+    jvmToolchain(8)
 }
 
 application {
     mainClass.set("MainKt")
+}
+
+tasks.jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    manifest {
+        attributes["Main-Class"] = "MainKt"
+    }
+    configurations["compileClasspath"].forEach { file: File -> from(zipTree(file.absoluteFile)) }
 }

@@ -8,9 +8,9 @@ val EPS: Double = 0.01;
 
 class Dot(val x: Double, val y: Double);
 
-open class Dots(val dots: List<Dot>);
+open class Dots(var dots: MutableList<Dot>);
 
-class EquidistantNodes(dots: List<Dot>) : Dots(dots) {
+class EquidistantNodes(dots: MutableList<Dot>) : Dots(dots) {
     val h: Double get() = if (dots.size > 1) dots[1].x - dots[0].x else 0.0;
 
     init {
