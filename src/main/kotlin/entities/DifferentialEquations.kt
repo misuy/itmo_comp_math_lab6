@@ -22,22 +22,27 @@ fun interface DifferentialEquationsSolvingMethod {
     fun solve(equation: DifferentialEquation): EquidistantNodes;
 }
 
+fun applyEulerMethod(equation: DifferentialEquation, h: Double): EquidistantNodes {
+    val nodes: EquidistantNodes = EquidistantNodes(mutableListOf());
+    val variables: Variables = Variables();
+    var x: Double = equation.solvingSegment.leftBorder;
+    nodes.dots.add(Dot(x, equation.y0));
+    x += h;
+    while (x <= equation.solvingSegment.rightBorder) {
+        variables.set("x", nodes.dots.last().x);
+        variables.set("y", nodes.dots.last().y);
+        nodes.dots.add(Dot(x, nodes.dots.last().y + h * equation.f.getValue(variables)));
+        x += h;
+    }
+    return nodes;
+}
+
 val eulerMethod: DifferentialEquationsSolvingMethod = DifferentialEquationsSolvingMethod { equation: DifferentialEquation ->
     var h: Double = equation.solvingSegment.rightBorder - equation.solvingSegment.leftBorder;
-    val nodes: EquidistantNodes = EquidistantNodes(mutableListOf());
     val prevNodes: EquidistantNodes = EquidistantNodes(mutableListOf());
     val variables: Variables = Variables();
     while (true) {
-        nodes.dots.clear();
-        var x: Double = equation.solvingSegment.leftBorder;
-        nodes.dots.add(Dot(x, equation.y0));
-        x += h;
-        while (x <= equation.solvingSegment.rightBorder) {
-            variables.set("x", nodes.dots.last().x);
-            variables.set("y", nodes.dots.last().y);
-            nodes.dots.add(Dot(x, nodes.dots.last().y + h * equation.f.getValue(variables)));
-            x += h;
-        }
+        val nodes: EquidistantNodes = applyEulerMethod(equation, h);
         if (prevNodes.dots.size != 0) if (rungeRule(prevNodes, nodes, 1, equation.expAccuracy)) break;
         prevNodes.dots = nodes.dots.toMutableList();
         h /= 2;
@@ -46,25 +51,31 @@ val eulerMethod: DifferentialEquationsSolvingMethod = DifferentialEquationsSolvi
     prevNodes;
 }
 
+fun applyAdvancedEulerMethod(equation: DifferentialEquation, h: Double): EquidistantNodes {
+    val nodes: EquidistantNodes = EquidistantNodes(mutableListOf());
+    val variables: Variables = Variables();
+    var x: Double = equation.solvingSegment.leftBorder;
+    nodes.dots.add(Dot(x, equation.y0));
+    x += h;
+    while (x <= equation.solvingSegment.rightBorder) {
+        variables.set("x", nodes.dots.last().x);
+        variables.set("y", nodes.dots.last().y);
+        val fValue: Double = equation.f.getValue(variables);
+        variables.set("x", x);
+        variables.set("y", nodes.dots.last().y + h * fValue);
+        nodes.dots.add(Dot(x, nodes.dots.last().y + h * (fValue + equation.f.getValue(variables)) / 2));
+        x += h;
+    }
+
+    return nodes;
+}
+
 val advancedEulerMethod: DifferentialEquationsSolvingMethod = DifferentialEquationsSolvingMethod { equation: DifferentialEquation ->
     var h: Double = equation.solvingSegment.rightBorder - equation.solvingSegment.leftBorder;
-    val nodes: EquidistantNodes = EquidistantNodes(mutableListOf());
     val prevNodes: EquidistantNodes = EquidistantNodes(mutableListOf());
     val variables: Variables = Variables();
     while (true) {
-        nodes.dots.clear();
-        var x: Double = equation.solvingSegment.leftBorder;
-        nodes.dots.add(Dot(x, equation.y0));
-        x += h;
-        while (x <= equation.solvingSegment.rightBorder) {
-            variables.set("x", nodes.dots.last().x);
-            variables.set("y", nodes.dots.last().y);
-            val fValue: Double = equation.f.getValue(variables);
-            variables.set("x", x);
-            variables.set("y", nodes.dots.last().y + h * fValue);
-            nodes.dots.add(Dot(x, nodes.dots.last().y + h * (fValue + equation.f.getValue(variables)) / 2));
-            x += h;
-        }
+        val nodes: EquidistantNodes = applyAdvancedEulerMethod(equation, h);
         if (prevNodes.dots.size != 0) if (rungeRule(prevNodes, nodes, 2, equation.expAccuracy)) break;
         prevNodes.dots = nodes.dots.toMutableList();
         h /= 2;
@@ -73,28 +84,35 @@ val advancedEulerMethod: DifferentialEquationsSolvingMethod = DifferentialEquati
     prevNodes;
 }
 
-val adamsMethod: DifferentialEquationsSolvingMethod = DifferentialEquationsSolvingMethod { equation: DifferentialEquation ->
-    var h: Double = equation.solvingSegment.rightBorder - equation.solvingSegment.leftBorder;
+fun applyAdamsMethod(equation: DifferentialEquation, h: Double): EquidistantNodes {
     val nodes: EquidistantNodes = EquidistantNodes(mutableListOf());
     val variables: Variables = Variables();
-    while (true) {
-        nodes.dots.clear();
-        var x: Double = equation.solvingSegment.leftBorder;
-        nodes.dots.add(Dot(x, equation.y0));
-        var counter: Int = 1;
-        x += h;
-        while (x <= equation.solvingSegment.rightBorder) {
-            if (counter < 4) {
-                variables.set("x", nodes.dots.last().x);
-                variables.set("y", nodes.dots.last().y);
-                nodes.dots.add(Dot(x, nodes.dots.last().y + h * equation.f.getValue(variables)));
-            }
-            else {
-                nodes.dots.add(Dot(x, nodes.dots.last().y + h * calcFiniteDifference(equation, nodes, counter - 1, 0) + h.pow(2) * calcFiniteDifference(equation, nodes, counter - 1, 1) / 2 + 5 * h.pow(3) * calcFiniteDifference(equation, nodes, counter - 1, 2) / 12 + 3 * h.pow(4) * calcFiniteDifference(equation, nodes, counter - 1, 3) / 8));
-            }
-            x += h;
-            counter++;
+    var x: Double = equation.solvingSegment.leftBorder;
+    nodes.dots.add(Dot(x, equation.y0));
+    var counter: Int = 1;
+    x += h;
+    while (x <= equation.solvingSegment.rightBorder) {
+        if (counter < 4) {
+            variables.set("x", nodes.dots.last().x);
+            variables.set("y", nodes.dots.last().y);
+            nodes.dots.add(Dot(x, nodes.dots.last().y + h * equation.f.getValue(variables)));
         }
+        else {
+            nodes.dots.add(Dot(x, nodes.dots.last().y + h * calcFiniteDifference(equation, nodes, counter - 1, 0) + h.pow(2) * calcFiniteDifference(equation, nodes, counter - 1, 1) / 2 + 5 * h.pow(3) * calcFiniteDifference(equation, nodes, counter - 1, 2) / 12 + 3 * h.pow(4) * calcFiniteDifference(equation, nodes, counter - 1, 3) / 8));
+        }
+        x += h;
+        counter++;
+    }
+
+    return nodes;
+}
+
+val adamsMethod: DifferentialEquationsSolvingMethod = DifferentialEquationsSolvingMethod { equation: DifferentialEquation ->
+    var h: Double = equation.solvingSegment.rightBorder - equation.solvingSegment.leftBorder;
+    var nodes: EquidistantNodes;
+    val variables: Variables = Variables();
+    while (true) {
+        nodes = applyAdamsMethod(equation, h);
         if (checkAccuracy(equation, nodes)) break;
         h /= 2;
     }
